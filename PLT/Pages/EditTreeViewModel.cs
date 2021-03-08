@@ -1,4 +1,5 @@
-﻿using Stylet;
+﻿using Microsoft.Data.Sqlite;
+using Stylet;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -124,32 +125,24 @@ namespace PLT.Pages
             }
         }
 
-        private Printer selectedPrinter;
+        private Printer _selectedPrinter;
+       
         public Printer SelectedPrinter 
         {
-            get { return selectedPrinter; }
+            get { return _selectedPrinter; }
             set
             {
-                SetAndNotify(ref this.selectedPrinter, value);
+                SetAndNotify(ref this._selectedPrinter, value);
                 NotifyOfPropertyChange(nameof(CanAddLocation));
                 NotifyOfPropertyChange(nameof(CanAddDepartment));
                 NotifyOfPropertyChange(nameof(CanAddPrinter));
             }
         }
+        
+        public ObservableCollection<Location> Locations { get; set; }
 
-
-
-        private ObservableCollection<Location> locations;
-        public ObservableCollection<Location> Locations
-        {
-            get { return locations; }
-            set 
-            {
-                locations = value;
-            }
-        }
-        public IEnumerable<Department> Departments => Locations.SelectMany(Location => Location.Departments);
-        public IEnumerable<Printer> Printers => Departments.SelectMany(Department => Department.Printers);
+        public IEnumerable<Department> Departments => Locations.SelectMany(location => location.Departments);
+        public IEnumerable<Printer> Printers => Departments.SelectMany(department => department.Printers);
 
 
 
@@ -204,6 +197,7 @@ namespace PLT.Pages
             Locations.Add(new Location(ActiveMain));
             NotifyOfPropertyChange(nameof(CanAddLocation));
             NotifyOfPropertyChange(nameof(Locations));
+
         }
         public void AddDepartment()
         {
@@ -241,6 +235,37 @@ namespace PLT.Pages
         }
         #endregion
 
+
+        public void SaveDB()
+        {
+            var db = Database.Instance;
+ 
+            foreach (var loc in Locations) 
+            {
+                string locationName = loc.LocationName;
+                db.AddLocation(locationName);
+            }
+            foreach (var dep in Departments)
+            {
+                string departmentName = dep.DepartmentName;
+                db.AddDepartment(departmentName);
+            }
+            foreach (var printer in Printers)
+            {
+                var department = Departments.First(x => x.Printers.Contains(printer));
+                var location = Locations.First(x => x.Departments.Contains(department));
+                
+                string priDepartmentName = department.DepartmentName;
+                string priLocationName = location.LocationName;
+                string priWarrantyCode = printer.WarrantyCode;
+                string priModel = printer.Model;
+                string priIp = printer.Ip;
+                string priTicketHistory = printer.TicketHistory;
+
+                db.AddPrinter(priWarrantyCode, priModel, priIp, priTicketHistory, priDepartmentName, priLocationName);
+            }
+        }
+        
         public EditTreeViewModel() 
         {
             Locations = new ObservableCollection<Location>() { L1 };
